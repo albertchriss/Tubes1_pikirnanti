@@ -13,12 +13,21 @@ public class Botol : Bot
     List<WaveBullet> waves = new List<WaveBullet>();
 
     Random random = new Random();
-    bool movingForward = true;
-    int[][] stats;
+    int[][][] stats;
     int lateralDirection = 1;
 
+    private Dictionary<int, int> botIdx = new Dictionary<int, int>();
+    int currIdx = 0;
     bool isRadarLocked = false;
-    bool isMoving = false;
+
+    private bool shoot = false;
+
+    private double enemyX;
+    private double enemyY;
+    private double enemyDirection;
+    private double enemySpeed;
+
+    private int enemyId;
 
     public static void Main(string[] args)
     {
@@ -34,42 +43,50 @@ public class Botol : Bot
 
     public Botol(BotInfo botInfo) : base(botInfo)
     {
-        stats = new int[13][];
-        for (int i = 0; i < 13; i++)
+        stats = new int[4][][];
+        for (int i = 0; i < 4; i++)
         {
-            stats[i] = new int[31];
+            stats[i] = new int[13][];
+            for (int j = 0; j < 13; j++)
+            {
+                stats[i][j] = new int[31];
+            }
         }
     }
 
     public override void Run()
     {
-        BodyColor = Color.Blue;
-        TurretColor = Color.Blue;
+        BodyColor = Color.Black;
+        TurretColor = Color.Black;
         RadarColor = Color.Black;
-        ScanColor = Color.Yellow;
+        ScanColor = Color.Black;
 
         AdjustGunForBodyTurn = true;
         AdjustRadarForBodyTurn = true;
         AdjustRadarForGunTurn = true;
 
         SetTurnRadarRight(double.PositiveInfinity); // Continuous radar sweep
-        MoveRandomly(); // only issue new movement if not already turning/moving
-
-        while (IsRunning)
-        {
-            TurnRadarLeft(10); // Continuously scan using gun-mounted radar
+        while (IsRunning){
+            Movement(); 
+            if (shoot)
+                handleShoot();
+            if (isRadarLocked && Math.Abs(RadarTurnRemaining) < 0.01)
+            {
+                isRadarLocked = false;
+                SetTurnRadarRight(double.PositiveInfinity);
+            }
+            Go();
         }
     }
 
-    public override void OnScannedBot(ScannedBotEvent e)
-    {
-        double absBearingDeg = Direction + BearingTo(e.X, e.Y);
+    private void handleShoot(){
+        double absBearingDeg = Direction + BearingTo(enemyX, enemyY);
         double absBearingRad = ToRadians(absBearingDeg);
-        double distance = DistanceTo(e.X, e.Y);
+        double distance = DistanceTo(enemyX, enemyY);
 
         for (int i = waves.Count - 1; i >= 0; i--)
         {
-            if (waves[i].CheckHit(e.X, e.Y, TurnNumber))
+            if (waves[i].CheckHit(enemyX, enemyY, TurnNumber))
             {
                 waves.RemoveAt(i);
             }
@@ -77,13 +94,25 @@ public class Botol : Bot
 
         double power = GetOptimalFirepower(distance);
 
-        if (e.Speed != 0)
+        if (enemySpeed != 0)
         {
-            double lateralVelocity = Math.Sin(ToRadians(e.Direction - absBearingDeg)) * e.Speed;
+            double lateralVelocity = Math.Sin(ToRadians(enemyDirection - absBearingDeg)) * enemySpeed;
             lateralDirection = lateralVelocity < 0 ? -1 : 1;
         }
 
-        int[] currentStats = stats[Math.Min((int)(distance / 100), stats.Length - 1)];
+        int idx;
+        if (botIdx.ContainsKey(enemyId))
+        {
+            idx = botIdx[enemyId];
+        }
+        else
+        {
+            idx = currIdx;
+            botIdx[enemyId] = currIdx++;
+        }
+
+
+        int[] currentStats = stats[idx][Math.Min((int)(distance / 100), stats.Length - 1)];
 
         int bestIndex = 15;
         for (int i = 0; i < currentStats.Length; i++)
@@ -100,88 +129,48 @@ public class Botol : Bot
 
         double predictedX = X + Math.Cos(predictedAngle) * distance;
         double predictedY = Y + Math.Sin(predictedAngle) * distance;
-        Console.WriteLine("Predicted X: " + predictedX + " Predicted Y: " + predictedY);
 
 
         double gunTurn = GunBearingTo(predictedX, predictedY);
-        TurnGunLeft(gunTurn);
+        SetTurnGunLeft(gunTurn);
 
-        double radarOffset = NormalizeAngle(RadarBearingTo(e.X, e.Y));
-        TurnRadarLeft(radarOffset);
+        double radarOffset = NormalizeAngle(RadarBearingTo(enemyX, enemyY));
+        SetTurnRadarLeft(radarOffset);
         isRadarLocked = true;
 
         if (GunHeat == 0 && Math.Abs(GunTurnRemaining) < 2.0)
         {
-            Fire(power);
+            SetFire(power);
             waves.Add(wave);
         }
+        shoot = false;
     }
-
-    public override void OnTick(TickEvent e){
-        if (isRadarLocked && Math.Abs(RadarTurnRemaining) < 0.01)
-        {
-            isRadarLocked = false;
-            SetTurnRadarRight(double.PositiveInfinity);
-        }
-        if (!isMoving || (TurnRemaining == 0 && DistanceRemaining == 0))
-        {
-            MoveRandomly();
-        }
-    }
-
-    private void MoveRandomly()
-    
+    public override void OnScannedBot(ScannedBotEvent e)
     {
-        isMoving = true;
-        if (IsNearWall())
-        {
-            SetTurnRight(random.Next(90, 180));
-            SetForward(150);
-            return;
-        }
-
-        if (IsNearBot())
-        {
-            SetTurnRight(random.Next(45, 90));
-            SetBack(100);
-            return;
-        }
-
-        int moveDistance = random.Next(200, 500);
-        int turnAngle = random.Next(45, 180);
-
-        SetForward(moveDistance);
-        SetTurnRight(turnAngle);
+        enemyX = e.X;
+        enemyY = e.Y;
+        enemyDirection = e.Direction;
+        enemySpeed = e.Speed;
+        enemyId = e.ScannedBotId;
+        shoot = true;
     }
 
-    private bool IsNearWall()
+    private void Movement()
     {
-        return X < 100 || X > ArenaWidth - 100 || Y < 100 || Y > ArenaHeight - 100;
-    }
+        if (shoot){
+            double angleToEnemy = BearingTo(enemyX, enemyY); // radians
 
-    private bool IsNearBot()
-    {
-        // Assumes a bot is nearby if we are moving and suddenly slow down
-        return Speed < 1.5;
-    }
-
-    public override void OnHitWall(HitWallEvent e) => ReverseDirection();
-    public override void OnHitBot(HitBotEvent e) => ReverseDirection();
-
-    private void ReverseDirection()
-    {
-        if (movingForward)
-        {
-            SetBack(40000);
-            movingForward = false;
-        }
-        else
-        {
-            SetForward(40000);
-            movingForward = true;
+            MoveInDirection(angleToEnemy, 120 + random.Next(40));
         }
     }
 
+    private void MoveInDirection(double angle, double distance)
+    {
+        double turnAngle = NormalizeAngle(angle); 
+
+        SetForward(distance);
+        SetTurnLeft(turnAngle);
+    }
     private double GetOptimalFirepower(double distance)
     {
         if (distance < 200)
