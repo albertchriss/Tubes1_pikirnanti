@@ -4,16 +4,21 @@ using System.Drawing;
 using Robocode.TankRoyale.BotApi;
 using Robocode.TankRoyale.BotApi.Events;
 
+
 public class NotThatGuy : Bot
 {
     Random random = new Random();
     bool movingForward = true;
 
-    private Dictionary<int, double> guessFactors = new Dictionary<int, double>();
-    private double enemyLastHeading = 0;
+    // private Queue<Action> actionQueue = new Queue<Action>();
+    private double enemyX = 0;
+    private double enemyY = 0;
+    private double enemyDirection = 0;
+    private double enemySpeed = 0;
 
     private bool isRadarLocked = false;
     private bool isMoving = false;  
+    private bool shoot = false;
 
     static void Main()
     {
@@ -33,78 +38,53 @@ public class NotThatGuy : Bot
         AdjustRadarForGunTurn = true;
 
         SetTurnRadarRight(double.PositiveInfinity); // Continuous radar sweep
-        MoveRandomly(); // only issue new movement if not already turning/moving
+        while (IsRunning){
+            MoveRandomly(); // only issue new movement if not already turning/moving
+            // ProcessQueue();
+            if (shoot)
+                handleShoot();
+            if (isRadarLocked && Math.Abs(RadarTurnRemaining) < 0.01)
+            {
+                isRadarLocked = false;
+                SetTurnRadarRight(double.PositiveInfinity);
+            }
+            Go();
+        }
 
-        // SetForward(10000);
-        // SetTurnRight(10000);
+    }
 
-        // while (IsRunning)
-        // {
-        //     if (TurnRemaining == 0 && DistanceRemaining == 0)
-        //     {
-        //     }
-            // Go();
-        // }
+    private void handleShoot(){
+        double bulletSpeed = 20 - (3 * GetOptimalFirepower(DistanceTo(enemyX, enemyY)));
+        double timeToHit = DistanceTo(enemyX, enemyY) / bulletSpeed;
+
+        double enemyVelocityX = enemySpeed * Math.Cos(DegreesToRadians(enemyDirection));
+        double enemyVelocityY = enemySpeed * Math.Sin(DegreesToRadians(enemyDirection));
+
+        double predictedX = enemyX + enemyVelocityX * timeToHit;
+        double predictedY = enemyY + enemyVelocityY * timeToHit;
+
+        double firingAngle = GunBearingTo(predictedX, predictedY);
+        SetTurnGunLeft(firingAngle);
+
+
+        double radarOffset = NormalizeAngle(RadarBearingTo(enemyX, enemyY));
+        SetTurnRadarLeft(radarOffset);
+        isRadarLocked = true;
+
+        double firepower = GetOptimalFirepower(DistanceTo(enemyX, enemyY));
+        if (GunHeat == 0 && Math.Abs(GunTurnRemaining) < 3.0)
+            SetFire(firepower);
+        shoot = false;
     }
 
     public override void OnScannedBot(ScannedBotEvent e)
     {
-        double enemyHeadingChange = e.Direction - enemyLastHeading;
-        enemyLastHeading = e.Direction;
+        enemyX = e.X;
+        enemyY = e.Y;
+        enemyDirection = e.Direction;
+        enemySpeed = e.Speed;
+        shoot = true;
 
-        double guessFactor = enemyHeadingChange / 10.0;
-        guessFactor = Math.Max(-1, Math.Min(1, guessFactor));
-
-        int gfIndex = (int)((guessFactor + 1) * 5);
-        if (!guessFactors.ContainsKey(gfIndex))
-            guessFactors[gfIndex] = 1;
-        else
-            guessFactors[gfIndex]++;
-
-        int bestFactorIndex = 0;
-        double highestFactor = 0;
-        foreach (var entry in guessFactors)
-        {
-            if (entry.Value > highestFactor)
-            {
-                highestFactor = entry.Value;
-                bestFactorIndex = entry.Key;
-            }
-        }
-
-        double bulletSpeed = 20 - (3 * GetOptimalFirepower(DistanceTo(e.X, e.Y)));
-        double timeToHit = DistanceTo(e.X, e.Y) / bulletSpeed;
-
-        double enemyVelocityX = e.Speed * Math.Cos(DegreesToRadians(e.Direction));
-        double enemyVelocityY = e.Speed * Math.Sin(DegreesToRadians(e.Direction));
-
-        double predictedX = e.X + enemyVelocityX * timeToHit;
-        double predictedY = e.Y + enemyVelocityY * timeToHit;
-
-        double firingAngle = GunBearingTo(predictedX, predictedY);
-        TurnGunLeft(firingAngle);
-
-        double radarOffset = NormalizeAngle(RadarBearingTo(e.X, e.Y));
-        TurnRadarLeft(radarOffset);
-        isRadarLocked = true;
-
-        double firepower = GetOptimalFirepower(DistanceTo(e.X, e.Y));
-
-        if (GunHeat == 0 && Math.Abs(GunTurnRemaining) < 3.0)
-            Fire(firepower);
-    }
-
-    public override void OnTick(TickEvent e){
-        if (isRadarLocked && Math.Abs(RadarTurnRemaining) < 0.01)
-        {
-            isRadarLocked = false;
-            SetTurnRadarRight(double.PositiveInfinity);
-        }
-        if (!isMoving || (TurnRemaining == 0 && DistanceRemaining == 0))
-        {
-            MoveRandomly();
-        }
-    }
 
     private void MoveRandomly()
     
