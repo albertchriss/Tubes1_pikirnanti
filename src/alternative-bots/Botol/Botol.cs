@@ -11,23 +11,19 @@ using Microsoft.Extensions.Configuration.Json;
 public class Botol : Bot
 {
     List<WaveBullet> waves = new List<WaveBullet>();
-
+    
     Random random = new Random();
     int[][][] stats;
     int lateralDirection = 1;
+    int currIdx = 0;
+    int turnCount = 0;
+    bool isRadarLocked = false;
+    private bool shoot = false, foundTarget = false;
 
     private Dictionary<int, int> botIdx = new Dictionary<int, int>();
-    int currIdx = 0;
-    bool isRadarLocked = false;
+    private Dictionary<int, ScannedBotEvent> botDict = new Dictionary<int, ScannedBotEvent>();
 
-    private bool shoot = false;
-
-    private double enemyX;
-    private double enemyY;
-    private double enemyDirection;
-    private double enemySpeed;
-
-    private int enemyId;
+    private ScannedBotEvent enemy, targettedEnemy = null;
 
     public static void Main(string[] args)
     {
@@ -70,8 +66,7 @@ public class Botol : Bot
             Movement(); 
             if (shoot)
                 handleShoot();
-            if (isRadarLocked && Math.Abs(RadarTurnRemaining) < 0.01)
-            {
+            if (isRadarLocked && Math.Abs(RadarTurnRemaining) < 0.01){
                 isRadarLocked = false;
                 SetTurnRadarRight(double.PositiveInfinity);
             }
@@ -80,85 +75,38 @@ public class Botol : Bot
     }
 
     private void handleShoot(){
-        double absBearingDeg = Direction + BearingTo(enemyX, enemyY);
-        double absBearingRad = ToRadians(absBearingDeg);
-        double distance = DistanceTo(enemyX, enemyY);
+        double bulletSpeed = 20 - (3 * GetOptimalFirepower(DistanceTo(enemy.X, enemy.Y)));
+        double timeToHit = DistanceTo(enemy.X, enemy.Y) / bulletSpeed;
 
-        for (int i = waves.Count - 1; i >= 0; i--)
-        {
-            if (waves[i].CheckHit(enemyX, enemyY, TurnNumber))
-            {
-                waves.RemoveAt(i);
-            }
-        }
+        double enemyVelocityX = enemy.Speed * Math.Cos(ToRadians(enemy.Direction));
+        double enemyVelocityY = enemy.Speed * Math.Sin(ToRadians(enemy.Direction));
 
-        double power = GetOptimalFirepower(distance);
+        double predictedX = enemy.X + enemyVelocityX * timeToHit;
+        double predictedY = enemy.Y + enemyVelocityY * timeToHit;
 
-        if (enemySpeed != 0)
-        {
-            double lateralVelocity = Math.Sin(ToRadians(enemyDirection - absBearingDeg)) * enemySpeed;
-            lateralDirection = lateralVelocity < 0 ? -1 : 1;
-        }
-
-        int idx;
-        if (botIdx.ContainsKey(enemyId))
-        {
-            idx = botIdx[enemyId];
-        }
-        else
-        {
-            idx = currIdx;
-            botIdx[enemyId] = currIdx++;
-        }
+        double firingAngle = GunBearingTo(predictedX, predictedY);
+        SetTurnGunLeft(firingAngle);
 
 
-        int[] currentStats = stats[idx][Math.Min((int)(distance / 100), stats.Length - 1)];
-
-        int bestIndex = 15;
-        for (int i = 0; i < currentStats.Length; i++)
-        {
-            if (currentStats[i] > currentStats[bestIndex])
-                bestIndex = i;
-        }
-
-        double guessFactor = (double)(bestIndex - (currentStats.Length - 1) / 2.0) / ((currentStats.Length - 1) / 2.0);
-        WaveBullet wave = new WaveBullet(X, Y, absBearingRad, power, lateralDirection, TurnNumber, currentStats);
-
-        double angleOffset = lateralDirection * guessFactor * wave.MaxEscapeAngle();
-        double predictedAngle = absBearingRad + angleOffset;
-
-        double predictedX = X + Math.Cos(predictedAngle) * distance;
-        double predictedY = Y + Math.Sin(predictedAngle) * distance;
-
-
-        double gunTurn = GunBearingTo(predictedX, predictedY);
-        SetTurnGunLeft(gunTurn);
-
-        double radarOffset = NormalizeAngle(RadarBearingTo(enemyX, enemyY));
+        double radarOffset = NormalizeAngle(RadarBearingTo(enemy.X, enemy.Y));
         SetTurnRadarLeft(radarOffset);
         isRadarLocked = true;
 
-        if (GunHeat == 0 && Math.Abs(GunTurnRemaining) < 2.0)
-        {
-            SetFire(power);
-            waves.Add(wave);
-        }
+        double firepower = GetOptimalFirepower(DistanceTo(enemy.X, enemy.Y), enemy.Energy);
+        if (GunHeat == 0 && Math.Abs(GunTurnRemaining) < 3.0)
+            SetFire(firepower);
         shoot = false;
     }
     public override void OnScannedBot(ScannedBotEvent e)
     {
-        enemyX = e.X;
-        enemyY = e.Y;
-        enemyDirection = e.Direction;
-        enemySpeed = e.Speed;
-        enemyId = e.ScannedBotId;
+        enemy = e;
         shoot = true;
     }
 
     private void Movement()
     {
         if (shoot){
-            double angleToEnemy = BearingTo(enemyX, enemyY); // radians
+            double angleToEnemy = BearingTo(enemy.X, enemy.Y); // radians
 
             MoveInDirection(angleToEnemy, 120 + random.Next(40));
         }
@@ -173,12 +121,28 @@ public class Botol : Bot
     }
     private double GetOptimalFirepower(double distance)
     {
-        if (distance < 200)
+        if (Energy < 20)
+            return 1; // Save energy when low
+
+        if (distance < 50)
             return 3;
-        else if (distance < 500)
+        else if (distance < 300)
             return 2;
+        else if (distance < 600)
+            return 1.5;
         else
             return 1;
+    }
+
+    private double GetOptimalFirepower(double distance, double enemyEnergy)
+    {
+        double basePower = GetOptimalFirepower(distance);
+
+        // If enemy is almost dead, finish them
+        if (enemyEnergy < 4)
+            return Math.Min(3, enemyEnergy); // Don't waste power
+
+        return basePower;
     }
 
     private double NormalizeAngle(double angle)
@@ -187,7 +151,6 @@ public class Botol : Bot
         while (angle < -180) angle += 360;
         return angle;
     }
-
     private double ToRadians(double degrees) => degrees * Math.PI / 180;
     private double ToDegrees(double radians) => radians * 180 / Math.PI;
 }
