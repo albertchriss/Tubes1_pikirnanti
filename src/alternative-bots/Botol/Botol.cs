@@ -10,20 +10,11 @@ using Microsoft.Extensions.Configuration.Json;
 
 public class Botol : Bot
 {
-    List<WaveBullet> waves = new List<WaveBullet>();
-    
     Random random = new Random();
-    int[][][] stats;
-    int lateralDirection = 1;
-    int currIdx = 0;
-    int turnCount = 0;
     bool isRadarLocked = false;
-    private bool shoot = false, foundTarget = false;
+    private bool shoot = false;
 
-    private Dictionary<int, int> botIdx = new Dictionary<int, int>();
-    private Dictionary<int, ScannedBotEvent> botDict = new Dictionary<int, ScannedBotEvent>();
-
-    private ScannedBotEvent enemy, targettedEnemy = null;
+    private ScannedBotEvent enemy;
 
     public static void Main(string[] args)
     {
@@ -37,18 +28,7 @@ public class Botol : Bot
         new Botol(botInfo).Start();
     }
 
-    public Botol(BotInfo botInfo) : base(botInfo)
-    {
-        stats = new int[4][][];
-        for (int i = 0; i < 4; i++)
-        {
-            stats[i] = new int[13][];
-            for (int j = 0; j < 13; j++)
-            {
-                stats[i][j] = new int[31];
-            }
-        }
-    }
+    public Botol(BotInfo botInfo) : base(botInfo){}
 
     public override void Run()
     {
@@ -75,7 +55,7 @@ public class Botol : Bot
     }
 
     private void handleShoot(){
-        double bulletSpeed = 20 - (3 * GetOptimalFirepower(DistanceTo(enemy.X, enemy.Y)));
+        double bulletSpeed = 20 - (3 * GetOptimalFirepower(DistanceTo(enemy.X, enemy.Y), enemy.Energy));
         double timeToHit = DistanceTo(enemy.X, enemy.Y) / bulletSpeed;
 
         double enemyVelocityX = enemy.Speed * Math.Cos(ToRadians(enemy.Direction));
@@ -106,7 +86,7 @@ public class Botol : Bot
     private void Movement()
     {
         if (shoot){
-            double angleToEnemy = BearingTo(enemy.X, enemy.Y); // radians
+            double angleToEnemy = BearingTo(enemy.X, enemy.Y); 
 
             MoveInDirection(angleToEnemy, 120 + random.Next(40));
         }
@@ -138,9 +118,8 @@ public class Botol : Bot
     {
         double basePower = GetOptimalFirepower(distance);
 
-        // If enemy is almost dead, finish them
         if (enemyEnergy < 4)
-            return Math.Min(3, enemyEnergy); // Don't waste power
+            return Math.Min(3, Math.Max(enemyEnergy, 0.1)); 
 
         return basePower;
     }
@@ -153,55 +132,4 @@ public class Botol : Bot
     }
     private double ToRadians(double degrees) => degrees * Math.PI / 180;
     private double ToDegrees(double radians) => radians * 180 / Math.PI;
-}
-
-public class WaveBullet
-{
-    private double startX, startY, startBearing, power;
-    private long fireTime;
-    private int direction;
-    private int[] returnSegment;
-
-    public WaveBullet(double x, double y, double bearing, double power, int direction, long time, int[] segment)
-    {
-        startX = x;
-        startY = y;
-        startBearing = bearing;
-        this.power = power;
-        this.direction = direction;
-        fireTime = time;
-        returnSegment = segment;
-    }
-
-    public double GetBulletSpeed() => 20 - power * 3;
-
-    public double MaxEscapeAngle() => Math.Asin(8 / GetBulletSpeed());
-
-    public bool CheckHit(double enemyX, double enemyY, long currentTime)
-    {
-        double traveledDistance = (currentTime - fireTime) * GetBulletSpeed();
-        double distance = Math.Sqrt((enemyX - startX) * (enemyX - startX) + (enemyY - startY) * (enemyY - startY));
-
-        if (distance <= traveledDistance)
-        {
-            double desiredDirection = Math.Atan2(enemyY - startY, enemyX - startX);
-            double angleOffset = NormalizeRelativeAngle(desiredDirection - startBearing);
-            double guessFactor = Math.Max(-1, Math.Min(1, angleOffset / MaxEscapeAngle())) * direction;
-            int index = (int)Math.Round((returnSegment.Length - 1) / 2.0 * (guessFactor + 1));
-
-            returnSegment[index]++;
-            return true;
-        }
-        return false;
-    }
-
-    private double NormalizeRelativeAngle(double angle)
-    {
-        // Force angle into -PI .. +PI range
-        while (angle > Math.PI) angle -= 2.0 * Math.PI;
-        while (angle < -Math.PI) angle += 2.0 * Math.PI;
-        return angle;
-    }
-    private double ToDegrees(double radians) => radians * 180 / Math.PI;
-    private double ToRadians(double degrees) => degrees * Math.PI / 180;
 }

@@ -14,8 +14,6 @@ public class Derik : Bot {
     private double preferredDist = 25, offset = 10;
     private int wait = 50;
     private ScannedBotEvent enemy;
-    private Dictionary<int, double> oldEnemyDirection = new Dictionary<int, double>();
-
     public static void Main(string[] args)
     {
         var builder = new ConfigurationBuilder()
