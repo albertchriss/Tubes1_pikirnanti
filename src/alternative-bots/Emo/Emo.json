@@ -1,0 +1,13 @@
+{
+  "name": "Emo",
+  "version": "1.0",
+  "authors": [ "pikirnanti" ],
+  "description": "Bot bergerak secara zig zag, mencari tempat yang jauh dari musuh dan menembak musuh terdekat.",
+  "homepage": "",
+  "countryCodes": [
+    "id",
+    "id"
+  ],
+  "platform": ".Net 6.0",
+  "programmingLang": "C#"
+}
