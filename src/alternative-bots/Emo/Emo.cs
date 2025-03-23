@@ -121,7 +121,6 @@ public class Emo : Bot
             }
         }
 
-        // Konversi bestFactorIndex ke Guess Factor
         double bestGuessFactor = (bestFactorIndex / 5.0) - 1;
 
         double bulletSpeed = 20 - (3 * GetOptimalFirepower(DistanceTo(e.X, e.Y)));
@@ -130,8 +129,7 @@ public class Emo : Bot
         double enemyVelocityX = e.Speed * Math.Cos(DegreesToRadians(e.Direction));
     double enemyVelocityY = e.Speed * Math.Sin(DegreesToRadians(e.Direction));
 
-    // Gunakan Guess Factor untuk memprediksi posisi musuh
-    double maxEscapeAngle = Math.Asin(8.0 / bulletSpeed); // Maksimal sudut pelarian
+    double maxEscapeAngle = Math.Asin(8.0 / bulletSpeed);
     double firingAngleOffset = bestGuessFactor * maxEscapeAngle;
 
     double predictedX = e.X + (enemyVelocityX * timeToHit) + (Math.Sin(firingAngleOffset) * e.Speed * timeToHit);
