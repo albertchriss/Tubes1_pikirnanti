@@ -121,28 +121,35 @@ public class Emo : Bot
             }
         }
 
+        // Konversi bestFactorIndex ke Guess Factor
+        double bestGuessFactor = (bestFactorIndex / 5.0) - 1;
+
         double bulletSpeed = 20 - (3 * GetOptimalFirepower(DistanceTo(e.X, e.Y)));
         double timeToHit = DistanceTo(e.X, e.Y) / bulletSpeed;
 
         double enemyVelocityX = e.Speed * Math.Cos(DegreesToRadians(e.Direction));
-        double enemyVelocityY = e.Speed * Math.Sin(DegreesToRadians(e.Direction));
+    double enemyVelocityY = e.Speed * Math.Sin(DegreesToRadians(e.Direction));
 
-        double predictedX = e.X + enemyVelocityX * timeToHit;
-        double predictedY = e.Y + enemyVelocityY * timeToHit;
+    // Gunakan Guess Factor untuk memprediksi posisi musuh
+    double maxEscapeAngle = Math.Asin(8.0 / bulletSpeed); // Maksimal sudut pelarian
+    double firingAngleOffset = bestGuessFactor * maxEscapeAngle;
 
-        predictedX = Math.Max(25, Math.Min(ArenaWidth - 25, predictedX));
-        predictedY = Math.Max(25, Math.Min(ArenaHeight - 25, predictedY));
+    double predictedX = e.X + (enemyVelocityX * timeToHit) + (Math.Sin(firingAngleOffset) * e.Speed * timeToHit);
+    double predictedY = e.Y + (enemyVelocityY * timeToHit) + (Math.Cos(firingAngleOffset) * e.Speed * timeToHit);
 
-        double firingAngle = GunBearingTo(predictedX, predictedY);
-        SetTurnGunLeft(firingAngle);
+    predictedX = Math.Max(25, Math.Min(ArenaWidth - 25, predictedX));
+    predictedY = Math.Max(25, Math.Min(ArenaHeight - 25, predictedY));
 
-        double radarOffset = NormalizeAngle(RadarBearingTo(e.X, e.Y));
-        SetTurnRadarLeft(radarOffset);
+    double firingAngle = GunBearingTo(predictedX, predictedY);
+    SetTurnGunLeft(firingAngle);
 
-        double firepower = GetOptimalFirepower(DistanceTo(e.X, e.Y));
-        if (GunHeat == 0 && Math.Abs(GunTurnRemaining) < 3.0)
-            Fire(firepower);
-    }
+    double radarOffset = NormalizeAngle(RadarBearingTo(e.X, e.Y));
+    SetTurnRadarLeft(radarOffset);
+
+    double firepower = GetOptimalFirepower(DistanceTo(e.X, e.Y));
+    if (GunHeat == 0 && Math.Abs(GunTurnRemaining) < 3.0)
+        Fire(firepower);
+}
 
     private double GetOptimalFirepower(double distance)
     {
