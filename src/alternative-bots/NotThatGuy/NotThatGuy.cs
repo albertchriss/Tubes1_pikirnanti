@@ -10,7 +10,6 @@ public class NotThatGuy : Bot
     Random random = new Random();
     bool movingForward = true;
 
-    // private Queue<Action> actionQueue = new Queue<Action>();
     private double enemyX = 0;
     private double enemyY = 0;
     private double enemyDirection = 0;
@@ -38,8 +37,7 @@ public class NotThatGuy : Bot
 
         SetTurnRadarRight(double.PositiveInfinity); // Continuous radar sweep
         while (IsRunning){
-            MoveRandomly(); // only issue new movement if not already turning/moving
-            // ProcessQueue();
+            MoveRandomly();
             if (shoot)
                 handleShoot();
             if (isRadarLocked && Math.Abs(RadarTurnRemaining) < 0.01)
@@ -155,19 +153,4 @@ public class NotThatGuy : Bot
     }
 
     private double DegreesToRadians(double degrees) => degrees * (Math.PI / 180);
-}
-
-public class TurnCompleteCondition : Condition
-{
-    private readonly Bot bot;
-
-    public TurnCompleteCondition(Bot bot)
-    {
-        this.bot = bot;
-    }
-
-    public override bool Test()
-    {
-        return bot.TurnRemaining == 0;
-    }
 }
