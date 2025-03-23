@@ -19,9 +19,6 @@ public class Emo : Bot
     private bool shoot = false;
     private ScannedBotEvent enemy = null;
     private bool isRadarLocked = false;
-
-     private Dictionary<int, double> oldEnemyDirection = new Dictionary<int, double>();
-
     static void Main()
     {
         new Emo().Start();
@@ -88,66 +85,29 @@ public class Emo : Bot
 
     }
     private void HandleShoot(){
-        double bulletPower = GetOptimalFirepower(DistanceTo(enemy.X, enemy.Y));
-        double bulletSpeed = 20 - (3 * bulletPower);
-        if (!oldEnemyDirection.ContainsKey(enemy.ScannedBotId)){
-            oldEnemyDirection[enemy.ScannedBotId] = 0;
-        }
-        double enemyDirectionDelta = enemy.Direction - oldEnemyDirection[enemy.ScannedBotId];
-        double enemyDirection = enemy.Direction;
-        oldEnemyDirection[enemy.ScannedBotId] = enemy.Direction;
+        double bulletSpeed = 20 - (3 * GetOptimalFirepower(DistanceTo(enemy.X, enemy.Y)));
+        double timeToHit = DistanceTo(enemy.X, enemy.Y) / bulletSpeed;
 
-        double deltatime = 1;
-        double predictedX = enemy.X, predictedY = enemy.Y;
-        while((deltatime++) * bulletSpeed < DistanceTo(predictedX, predictedY)){
-            predictedX += Math.Sin(DegreesToRadians(enemy.Direction)) * enemy.Speed;
-            predictedY += Math.Cos(DegreesToRadians(enemy.Direction)) * enemy.Speed;
-            enemyDirection += enemyDirectionDelta;
-            if(	predictedX < 10.0 || predictedY < 10.0
-                || predictedX > ArenaWidth - 10.0 || predictedY > ArenaHeight - 10.0){
-                predictedX = Math.Min(Math.Max(10.0, predictedX), ArenaWidth - 10.0);	
-                predictedY = Math.Min(Math.Max(10.0, predictedY), ArenaHeight - 10.0);
-                break;
-            }
-        }
+        double enemyVelocityX = enemy.Speed * Math.Cos(DegreesToRadians(enemy.Direction));
+        double enemyVelocityY = enemy.Speed * Math.Sin(DegreesToRadians(enemy.Direction));
+
+        double predictedX = enemy.X + enemyVelocityX * timeToHit;
+        double predictedY = enemy.Y + enemyVelocityY * timeToHit;
 
         double firingAngle = GunBearingTo(predictedX, predictedY);
-        SetTurnGunLeft(firingAngle);
+        SetTurnGunLeft(NormalizeAngle(firingAngle));
 
-        double radarOffset = NormalizeAngle(RadarBearingTo(enemy.X, enemy.Y));
-        SetTurnRadarLeft(radarOffset);
-        isRadarLocked = true;
+        if (EnemyCount == 1){
+            double radarOffset = NormalizeAngle(RadarBearingTo(enemy.X, enemy.Y));
+            SetTurnRadarLeft(radarOffset);
+            isRadarLocked = true;
+        }
 
         double firepower = GetOptimalFirepower(DistanceTo(enemy.X, enemy.Y));
         if (GunHeat == 0 && Math.Abs(GunTurnRemaining) < 3.0)
             SetFire(firepower);
         shoot = false;
     }
-
-    // private void handleShoot(){
-    //     double bulletSpeed = 20 - (3 * GetOptimalFirepower(DistanceTo(enemy.X, enemy.Y)));
-    //     double timeToHit = DistanceTo(enemy.X, enemy.Y) / bulletSpeed;
-
-    //     double enemyVelocityX = enemy.Speed * Math.Cos(DegreesToRadians(enemy.Direction));
-    //     double enemyVelocityY = enemy.Speed * Math.Sin(DegreesToRadians(enemy.Direction));
-
-    //     double predictedX = enemy.X + enemyVelocityX * timeToHit;
-    //     double predictedY = enemy.Y + enemyVelocityY * timeToHit;
-
-    //     double firingAngle = GunBearingTo(predictedX, predictedY);
-    //     SetTurnGunLeft(NormalizeAngle(firingAngle));
-
-    //     if (EnemyCount == 1){
-    //         double radarOffset = NormalizeAngle(RadarBearingTo(enemy.X, enemy.Y));
-    //         SetTurnRadarLeft(radarOffset);
-    //         isRadarLocked = true;
-    //     }
-
-    //     double firepower = GetOptimalFirepower(DistanceTo(enemy.X, enemy.Y));
-    //     if (GunHeat == 0 && Math.Abs(GunTurnRemaining) < 3.0)
-    //         SetFire(firepower);
-    //     shoot = false;
-    // }
 
     private double EvaluateThreat(double candidateX, double candidateY)
     {
@@ -200,10 +160,15 @@ public class Emo : Bot
 
     private double GetOptimalFirepower(double distance)
     {
-        if (distance < 200)
+        if (Energy < 20)
+            return 1; // Save energy when low
+
+        if (distance < 50)
             return 3;
-        else if (distance < 500)
+        else if (distance < 300)
             return 2;
+        else if (distance < 600)
+            return 1.5;
         else
             return 1;
     }
