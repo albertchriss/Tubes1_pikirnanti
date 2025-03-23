@@ -70,7 +70,7 @@ public class Derik : Bot {
     }
 
     private void HandleShoot(){
-        double bulletSpeed = 20 - (3 * GetOptimalFirepower(DistanceTo(enemy.X, enemy.Y)), enemy.Energy);
+        double bulletSpeed = 20 - (3 * GetOptimalFirepower(DistanceTo(enemy.X, enemy.Y), enemy.Energy));
         double timeToHit = DistanceTo(enemy.X, enemy.Y) / bulletSpeed;
 
         double enemyVelocityX = enemy.Speed * Math.Cos(ToRadians(enemy.Direction));
