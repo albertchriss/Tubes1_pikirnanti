@@ -17,7 +17,6 @@ public class NotThatGuy : Bot
     private double enemySpeed = 0;
 
     private bool isRadarLocked = false;
-    private bool isMoving = false;  
     private bool shoot = false;
 
     static void Main()
@@ -84,12 +83,11 @@ public class NotThatGuy : Bot
         enemyDirection = e.Direction;
         enemySpeed = e.Speed;
         shoot = true;
-
+    }
 
     private void MoveRandomly()
     
     {
-        isMoving = true;
         if (IsNearWall())
         {
             SetTurnRight(random.Next(90, 180));
