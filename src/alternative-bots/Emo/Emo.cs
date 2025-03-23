@@ -18,6 +18,11 @@ public class Emo : Bot
     private Dictionary<int, double> guessFactors = new Dictionary<int, double>();
     private double enemyLastHeading = 0;
 
+    private bool shoot = false;
+    private ScannedBotEvent enemy = null;
+
+    private bool isRadarLocked = false;
+
     static void Main()
     {
         new Emo().Start();
@@ -27,19 +32,28 @@ public class Emo : Bot
 
     public override void Run()
     {
-        BodyColor = Color.Black;
-        TurretColor = Color.Black;
-        RadarColor = Color.Black;
+        BodyColor = Color.Red;
+        TurretColor = Color.Red;
+        RadarColor = Color.Red;
 
         AdjustRadarForBodyTurn = true;
         AdjustRadarForGunTurn = true;
         AdjustGunForBodyTurn = true;
 
         SetTurnRadarRight(double.PositiveInfinity);
+        while(IsRunning){
+            Movement();
+            if (shoot) handleShoot();
+            if (isRadarLocked && Math.Abs(RadarTurnRemaining) < 0.01)
+            {
+                isRadarLocked = false;
+                SetTurnRadarRight(double.PositiveInfinity);
+            }
+            Go();
+        }
     }
 
-    public override void OnTick(TickEvent e)
-    {
+    private void Movement(){
         if (DistanceRemaining < stopDistance)
         {
             double optimalX = X, optimalY = Y;
@@ -72,7 +86,32 @@ public class Emo : Bot
         double adjustAngle = BearingTo(targetX, targetY) * Math.PI / 180;
         SetTurnLeft(180 / Math.PI * Math.Tan(adjustAngle));
         SetForward(DistanceTo(targetX, targetY) * Math.Cos(adjustAngle));
-        SetTurnRadarRight(double.PositiveInfinity);
+
+    }
+
+    private void handleShoot(){
+        double bulletSpeed = 20 - (3 * GetOptimalFirepower(DistanceTo(enemy.X, enemy.Y)));
+        double timeToHit = DistanceTo(enemy.X, enemy.Y) / bulletSpeed;
+
+        double enemyVelocityX = enemy.Speed * Math.Cos(DegreesToRadians(enemy.Direction));
+        double enemyVelocityY = enemy.Speed * Math.Sin(DegreesToRadians(enemy.Direction));
+
+        double predictedX = enemy.X + enemyVelocityX * timeToHit;
+        double predictedY = enemy.Y + enemyVelocityY * timeToHit;
+
+        double firingAngle = GunBearingTo(predictedX, predictedY);
+        SetTurnGunLeft(NormalizeAngle(firingAngle));
+
+        if (EnemyCount == 1){
+            double radarOffset = NormalizeAngle(RadarBearingTo(enemy.X, enemy.Y));
+            SetTurnRadarLeft(radarOffset);
+            isRadarLocked = true;
+        }
+
+        double firepower = GetOptimalFirepower(DistanceTo(enemy.X, enemy.Y));
+        if (GunHeat == 0 && Math.Abs(GunTurnRemaining) < 3.0)
+            SetFire(firepower);
+        shoot = false;
     }
 
     private double EvaluateThreat(double candidateX, double candidateY)
@@ -98,58 +137,31 @@ public class Emo : Bot
 
     public override void OnScannedBot(ScannedBotEvent e)
     {
-        double enemyHeadingChange = e.Direction - enemyLastHeading;
-        enemyLastHeading = e.Direction;
-
-        double guessFactor = enemyHeadingChange / 10.0;
-        guessFactor = Math.Max(-1, Math.Min(1, guessFactor));
-
-        int gfIndex = (int)((guessFactor + 1) * 5);
-        if (!guessFactors.ContainsKey(gfIndex))
-            guessFactors[gfIndex] = 1;
-        else
-            guessFactors[gfIndex]++;
-
-        int bestFactorIndex = 0;
-        double highestFactor = 0;
-        foreach (var entry in guessFactors)
+        OpponentInfo opponent = opponentList.Find(o => o.BotId == e.ScannedBotId);
+        if (opponent == null)
         {
-            if (entry.Value > highestFactor)
-            {
-                highestFactor = entry.Value;
-                bestFactorIndex = entry.Key;
-            }
+            opponent = new OpponentInfo { BotId = e.ScannedBotId };
+            opponentList.Add(opponent);
         }
+        opponent.Update(e.X, e.Y, e.Speed, e.Direction, e.Energy);
 
-        // Konversi bestFactorIndex ke Guess Factor
-        double bestGuessFactor = (bestFactorIndex / 5.0) - 1;
+        shoot = true;
+        if (enemy == null)
+            enemy = e;
+        else if (enemy.ScannedBotId == e.ScannedBotId || DistanceTo(e.X, e.Y) < DistanceTo(enemy.X, enemy.Y))
+            enemy = e;
+        
+    }
 
-        double bulletSpeed = 20 - (3 * GetOptimalFirepower(DistanceTo(e.X, e.Y)));
-        double timeToHit = DistanceTo(e.X, e.Y) / bulletSpeed;
-
-        double enemyVelocityX = e.Speed * Math.Cos(DegreesToRadians(e.Direction));
-    double enemyVelocityY = e.Speed * Math.Sin(DegreesToRadians(e.Direction));
-
-    // Gunakan Guess Factor untuk memprediksi posisi musuh
-    double maxEscapeAngle = Math.Asin(8.0 / bulletSpeed); // Maksimal sudut pelarian
-    double firingAngleOffset = bestGuessFactor * maxEscapeAngle;
-
-    double predictedX = e.X + (enemyVelocityX * timeToHit) + (Math.Sin(firingAngleOffset) * e.Speed * timeToHit);
-    double predictedY = e.Y + (enemyVelocityY * timeToHit) + (Math.Cos(firingAngleOffset) * e.Speed * timeToHit);
-
-    predictedX = Math.Max(25, Math.Min(ArenaWidth - 25, predictedX));
-    predictedY = Math.Max(25, Math.Min(ArenaHeight - 25, predictedY));
-
-    double firingAngle = GunBearingTo(predictedX, predictedY);
-    SetTurnGunLeft(firingAngle);
-
-    double radarOffset = NormalizeAngle(RadarBearingTo(e.X, e.Y));
-    SetTurnRadarLeft(radarOffset);
-
-    double firepower = GetOptimalFirepower(DistanceTo(e.X, e.Y));
-    if (GunHeat == 0 && Math.Abs(GunTurnRemaining) < 3.0)
-        Fire(firepower);
-}
+    public override void OnBotDeath(BotDeathEvent e)
+    {
+        OpponentInfo opponent = opponentList.Find(o => o.BotId == e.VictimId);
+        if (opponent != null)
+            opponent.IsActive = false;
+        
+        if (enemy.ScannedBotId == e.VictimId)
+            enemy = null;
+    }
 
     private double GetOptimalFirepower(double distance)
     {
