@@ -8,16 +8,13 @@ using System.IO;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Configuration.Json;
 
-public class Derik : Bot
-{
-    Random random = new Random();
-    bool isRadarLocked = false;
-    private bool shoot = false;
-
-    private bool maju = true;
-    private Dictionary<int, ScannedBotEvent> botDict = new Dictionary<int, ScannedBotEvent>();
-
+public class Derik : Bot {
+    private Random random = new Random();
+    private bool isRadarLocked = false, shoot = false, maju = true;
+    private double preferredDist = 25, offset = 10;
+    private int wait = 50;
     private ScannedBotEvent enemy;
+    private Dictionary<int, double> oldEnemyDirection = new Dictionary<int, double>();
 
     public static void Main(string[] args)
     {
@@ -35,10 +32,10 @@ public class Derik : Bot
 
     public override void Run()
     {
-        BodyColor = Color.Black;
-        TurretColor = Color.Black;
-        RadarColor = Color.Black;
-        ScanColor = Color.Black;
+        BodyColor = Color.White;
+        TurretColor = Color.White;
+        RadarColor = Color.White;
+        ScanColor = Color.White;
 
         AdjustGunForBodyTurn = true;
         AdjustRadarForBodyTurn = true;
@@ -48,7 +45,7 @@ public class Derik : Bot
         while (IsRunning){
             Movement(); 
             if (shoot)
-                handleShoot();
+                HandleShoot();
             if (isRadarLocked && Math.Abs(RadarTurnRemaining) < 0.01){
                 isRadarLocked = false;
                 SetTurnRadarRight(double.PositiveInfinity);
@@ -56,9 +53,24 @@ public class Derik : Bot
             Go();
         }
     }
+    public override void OnScannedBot(ScannedBotEvent e)
+    {
+        enemy = e;
+        shoot = true;
+    }
 
-    private void handleShoot(){
-        double bulletSpeed = 20 - (3 * GetOptimalFirepower(DistanceTo(enemy.X, enemy.Y)));
+    public override void OnTick(TickEvent e){
+        if (wait > 0)
+            wait--;
+        
+        if (wait <= 0){
+            maju = !maju;
+            wait = random.Next(30, 75);
+        }
+    }
+
+    private void HandleShoot(){
+        double bulletSpeed = 20 - (3 * GetOptimalFirepower(DistanceTo(enemy.X, enemy.Y)), enemy.Energy);
         double timeToHit = DistanceTo(enemy.X, enemy.Y) / bulletSpeed;
 
         double enemyVelocityX = enemy.Speed * Math.Cos(ToRadians(enemy.Direction));
@@ -80,25 +92,6 @@ public class Derik : Bot
             SetFire(firepower);
         shoot = false;
     }
-    public override void OnScannedBot(ScannedBotEvent e)
-    {
-        enemy = e;
-        shoot = true;
-    }
-    private double preferredDist = 25, offset = 10;
-
-    int wait = 50;
-
-    public override void OnTick(TickEvent e){
-        if (wait > 0)
-            wait--;
-        
-        if (wait <= 0){
-            maju = !maju;
-            wait = random.Next(30, 75);
-        }
-    }
-
     private void Movement()
     {   
         if (IsNearWall() && wait <= 0){
@@ -113,20 +106,20 @@ public class Derik : Bot
             double angleToEnemy = BearingTo(enemy.X, enemy.Y);
             if (!maju) angleToEnemy += 180;
 
-            int a;
+            int adjustAngle;
             if (DistanceTo(enemy.X, enemy.Y) < preferredDist - offset ){
-                a = 150;
+                adjustAngle = 150;
             }
             else if (DistanceTo(enemy.X, enemy.Y) > preferredDist + offset){
-                a = 60;
+                adjustAngle = 60;
             }
             else{
-                a = 90;
+                adjustAngle = 90;
             }
             if (angleToEnemy > 0)
-                angleToEnemy -= a;
+                angleToEnemy -= adjustAngle;
             else 
-                angleToEnemy += a;
+                angleToEnemy += adjustAngle;
             MoveInDirection(angleToEnemy);
         }
     }
@@ -146,13 +139,7 @@ public class Derik : Bot
     private void MoveInDirection(double angle)
     {
         double turnAngle = NormalizeAngle(angle); 
-        // if (maju){
         SetTurnLeft(turnAngle);
-        // }
-        // else{
-        //     SetTurnRight(turnAngle);
-        // }
-        // SetForward(distance);
     }
     private double GetOptimalFirepower(double distance)
     {
@@ -173,7 +160,6 @@ public class Derik : Bot
     {
         double basePower = GetOptimalFirepower(distance);
 
-        // If enemy is almost dead, finish them
         if (enemyEnergy < 4)
             return Math.Min(3, Math.Max(enemyEnergy, 0.1)); // Don't waste power
 
