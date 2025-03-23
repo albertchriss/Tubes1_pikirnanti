@@ -10,11 +10,10 @@ using Microsoft.Extensions.Configuration.Json;
 
 public class Derik : Bot {
     private Random random = new Random();
-    private bool isRadarLocked = false;
-    private bool shoot = false;
-    private bool maju = true;
+    private bool isRadarLocked = false, shoot = false, maju = true;
+    private double preferredDist = 25, offset = 10;
+    private int wait = 50;
     private ScannedBotEvent enemy;
-
     private Dictionary<int, double> oldEnemyDirection = new Dictionary<int, double>();
 
     public static void Main(string[] args)
@@ -54,46 +53,24 @@ public class Derik : Bot {
             Go();
         }
     }
+    public override void OnScannedBot(ScannedBotEvent e)
+    {
+        enemy = e;
+        shoot = true;
+    }
 
+    public override void OnTick(TickEvent e){
+        if (wait > 0)
+            wait--;
+        
+        if (wait <= 0){
+            maju = !maju;
+            wait = random.Next(30, 75);
+        }
+    }
 
-    // private void HandleShoot(){
-    //     double bulletPower = GetOptimalFirepower(DistanceTo(enemy.X, enemy.Y), enemy.Energy);
-    //     double bulletSpeed = 20 - (3 * bulletPower);
-    //     if (!oldEnemyDirection.ContainsKey(enemy.ScannedBotId)){
-    //         oldEnemyDirection[enemy.ScannedBotId] = 0;
-    //     }
-    //     double enemyDirectionDelta = enemy.Direction - oldEnemyDirection[enemy.ScannedBotId];
-    //     double enemyDirection = enemy.Direction;
-    //     oldEnemyDirection[enemy.ScannedBotId] = enemy.Direction;
-
-    //     double deltatime = 1;
-    //     double predictedX = enemy.X, predictedY = enemy.Y;
-    //     while((deltatime++) * bulletSpeed < DistanceTo(predictedX, predictedY)){
-    //         predictedX += Math.Sin(ToRadians(enemy.Direction)) * enemy.Speed;
-    //         predictedY += Math.Cos(ToRadians(enemy.Direction)) * enemy.Speed;
-    //         enemyDirection += enemyDirectionDelta;
-    //         if(	predictedX < 10.0 || predictedY < 10.0
-    //             || predictedX > ArenaWidth - 10.0 || predictedY > ArenaHeight - 10.0){
-    //             predictedX = Math.Min(Math.Max(10.0, predictedX), ArenaWidth - 10.0);	
-    //             predictedY = Math.Min(Math.Max(10.0, predictedY), ArenaHeight - 10.0);
-    //             break;
-    //         }
-    //     }
-
-    //     double firingAngle = GunBearingTo(predictedX, predictedY);
-    //     SetTurnGunLeft(firingAngle);
-
-    //     double radarOffset = NormalizeAngle(RadarBearingTo(enemy.X, enemy.Y));
-    //     SetTurnRadarLeft(radarOffset);
-    //     isRadarLocked = true;
-
-    //     double firepower = GetOptimalFirepower(DistanceTo(enemy.X, enemy.Y), enemy.Energy);
-    //     if (GunHeat == 0 && Math.Abs(GunTurnRemaining) < 3.0)
-    //         SetFire(firepower);
-    //     shoot = false;
-    // }
     private void HandleShoot(){
-        double bulletSpeed = 20 - (3 * GetOptimalFirepower(DistanceTo(enemy.X, enemy.Y)));
+        double bulletSpeed = 20 - (3 * GetOptimalFirepower(DistanceTo(enemy.X, enemy.Y)), enemy.Energy);
         double timeToHit = DistanceTo(enemy.X, enemy.Y) / bulletSpeed;
 
         double enemyVelocityX = enemy.Speed * Math.Cos(ToRadians(enemy.Direction));
@@ -115,25 +92,6 @@ public class Derik : Bot {
             SetFire(firepower);
         shoot = false;
     }
-    public override void OnScannedBot(ScannedBotEvent e)
-    {
-        enemy = e;
-        shoot = true;
-    }
-    private double preferredDist = 25, offset = 10;
-
-    int wait = 50;
-
-    public override void OnTick(TickEvent e){
-        if (wait > 0)
-            wait--;
-        
-        if (wait <= 0){
-            maju = !maju;
-            wait = random.Next(30, 75);
-        }
-    }
-
     private void Movement()
     {   
         if (IsNearWall() && wait <= 0){
@@ -202,7 +160,6 @@ public class Derik : Bot {
     {
         double basePower = GetOptimalFirepower(distance);
 
-        // If enemy is almost dead, finish them
         if (enemyEnergy < 4)
             return Math.Min(3, Math.Max(enemyEnergy, 0.1)); // Don't waste power
 
