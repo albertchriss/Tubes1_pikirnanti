@@ -211,17 +211,6 @@ public class OpponentInfo
         if (movementHistory.Count > 100) movementHistory.RemoveAt(0);
     }
 
-    public double GetGuessFactor()
-    {
-        if (movementHistory.Count == 0) return 0;
-        
-        double sum = 0;
-        foreach (double move in movementHistory)
-            sum += move;
-
-        return Math.Max(-1, Math.Min(1, sum / movementHistory.Count));
-    }
-
     private double NormalizeAngle(double angle)
     {
         while (angle > 180) angle -= 360;
