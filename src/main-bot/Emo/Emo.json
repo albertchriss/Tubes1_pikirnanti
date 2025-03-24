@@ -1,0 +1,16 @@
+{
+  "name": "Emo",
+  "version": "1.0",
+  "authors": [ 
+    "pikirnanti",
+    "Albertus Christian P", 
+    "Grace Evelyn Simon" 
+  ],
+  "description": "Bot bergerak dalam pola osilasi, mencari tempat yang jauh dari musuh dan menembak musuh terdekat.",
+  "homepage": "",
+  "countryCodes": [
+    "id"
+  ],
+  "platform": ".Net 6.0",
+  "programmingLang": "C# 10.0"
+}

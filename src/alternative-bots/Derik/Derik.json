@@ -1,16 +1,17 @@
 {
-    "name": "Derik",
-    "version": "1.0",
-    "authors": [
-      "Chris"
-    ],
-    "description": "Derik melingkar-lingkar di atas pagar",
-    "homepage": "",
-    "countryCodes": [
-      "us",
-      "dk"
-    ],
-    "platform": ".Net 6.0",
-    "programmingLang": "C# 10.0"
-  }
+  "name": "Derik",
+  "version": "1.0",
+  "authors": [
+    "pikirnanti",
+    "Albertus Christian P",
+    "Grace Evelyn Simon"
+  ],
+  "description": "Derik melingkar-lingkar di atas pagar",
+  "homepage": "",
+  "countryCodes": [
+    "id"
+  ],
+  "platform": ".Net 6.0",
+  "programmingLang": "C# 10.0"
+}
   

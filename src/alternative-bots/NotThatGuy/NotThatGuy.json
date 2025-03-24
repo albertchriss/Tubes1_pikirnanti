@@ -2,14 +2,14 @@
   "name": "NotThatGuy",
   "version": "1.0",
   "authors": [
-    "Mathew Nelson",
-    "Flemming N. Larsen"
+    "pikirnanti",
+    "Albertus Christian P",
+    "Grace Evelyn Simon"
   ],
-  "description": "Y",
+  "description": "Bot dengan pergerakan sirkular yang acak",
   "homepage": "",
   "countryCodes": [
-    "us",
-    "dk"
+    "id"
   ],
   "platform": ".Net 6.0",
   "programmingLang": "C# 10.0"
