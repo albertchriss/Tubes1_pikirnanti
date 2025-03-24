@@ -1,16 +1,17 @@
 {
-    "name": "Botol",
-    "version": "1.0",
-    "authors": [
-      "Chris"
-    ],
-    "description": "Test bot",
-    "homepage": "",
-    "countryCodes": [
-      "us",
-      "dk"
-    ],
-    "platform": ".Net 6.0",
-    "programmingLang": "C# 10.0"
-  }
+  "name": "Botol",
+  "version": "1.0",
+  "authors": [
+    "pikirnanti",
+    "Albertus Christian P",
+    "Grace Evelyn Simon"
+  ],
+  "description": "Ramming Bot yang akan menabrak dan melakukan locking pada musuh jika dideteksi radar",
+  "homepage": "",
+  "countryCodes": [
+    "id"
+  ],
+  "platform": ".Net 6.0",
+  "programmingLang": "C# 10.0"
+}
   

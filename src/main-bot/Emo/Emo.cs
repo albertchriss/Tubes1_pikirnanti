@@ -28,9 +28,10 @@ public class Emo : Bot
 
     public override void Run()
     {
-        BodyColor = Color.Red;
-        TurretColor = Color.Red;
-        RadarColor = Color.Red;
+        BodyColor = Color.Black;
+        TurretColor = Color.Black;
+        RadarColor = Color.Black;
+        ScanColor = Color.Black;
 
         AdjustRadarForBodyTurn = true;
         AdjustRadarForGunTurn = true;
@@ -195,8 +196,6 @@ public class OpponentInfo
     public double LastHeading { get; set; }
     public double LastPower { get; set; }
     public bool IsActive { get; set; } = true;
-    private List<double> movementHistory = new List<double>();
-
     public void Update(double x, double y, double speed, double heading, double energy)
     {
         LastX = x;
@@ -205,16 +204,5 @@ public class OpponentInfo
         LastHeading = heading;
         LastPower = energy;
         IsActive = true;
-
-        double angleChange = NormalizeAngle(heading - LastHeading);
-        movementHistory.Add(angleChange);
-        if (movementHistory.Count > 100) movementHistory.RemoveAt(0);
-    }
-
-    private double NormalizeAngle(double angle)
-    {
-        while (angle > 180) angle -= 360;
-        while (angle < -180) angle += 360;
-        return angle;
     }
 }

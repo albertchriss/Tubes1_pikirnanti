@@ -32,10 +32,10 @@ public class Botol : Bot
 
     public override void Run()
     {
-        BodyColor = Color.Black;
-        TurretColor = Color.Black;
-        RadarColor = Color.Black;
-        ScanColor = Color.Black;
+        BodyColor = Color.Red;
+        TurretColor = Color.Red;
+        RadarColor = Color.Red;
+        ScanColor = Color.Red;
 
         AdjustGunForBodyTurn = true;
         AdjustRadarForBodyTurn = true;
